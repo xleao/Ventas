@@ -1,0 +1,473 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Inventario – Importaciones</title>
+<style>
+  :root{
+    --bg:#f7f5fb; --ink:#1f1430; --muted:#6b5b72;
+    --card:#ffffff; --ring:#e9e1ff;
+    --violet:#7c3aed; --violet-2:#a78bfa; --violet-3:#efe7ff;
+    --ok:#10b981; --warn:#f59e0b; --danger:#ef4444;
+    --r:16px; --shadow:0 8px 28px rgba(124,58,237,.12), 0 2px 10px rgba(0,0,0,.05);
+    --max:1200px; --hpad:16px;
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%;margin:0}
+  /* SIN SCROLL DE PÁGINA: todo encaja en 100svh */
+  body{font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Arial;color:var(--ink);background:var(--bg);overflow:hidden}
+  .app{height:100svh;display:grid;grid-template-rows:auto 1fr;place-items:stretch}
+  .wrap{max-width:var(--max);width:100%;margin:0 auto;padding:0 var(--hpad)}
+  /* Header encuadrado */
+  header.header{background:#fff;border:1px solid var(--ring);border-radius:var(--r);
+    box-shadow:var(--shadow);margin:12px 0 8px;padding:12px}
+  .head-row{display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap}
+  h1{margin:0;font-size:22px;font-weight:800;letter-spacing:.2px;
+     background:linear-gradient(90deg,var(--violet),#9333ea,#6d28d9);
+     -webkit-background-clip:text;background-clip:text;color:transparent}
+  .sub{color:var(--muted);font-size:12px;margin-top:2px}
+  .head-left{display:flex;gap:8px;align-items:center}
+  .head-actions{display:flex;gap:8px;flex-wrap:wrap}
+  .btn{
+    appearance:none;border:1px solid transparent;background:var(--violet);color:#fff;
+    padding:9px 12px;border-radius:12px;font-weight:700;cursor:pointer;
+    box-shadow:0 6px 16px rgba(124,58,237,.24), 0 1px 6px rgba(0,0,0,.06); white-space:nowrap
+  }
+  .btn.secondary{background:#fff;color:var(--ink);border-color:var(--ring)}
+  .btn.danger{background:var(--danger)}
+  .btn:disabled{opacity:.6;cursor:not-allowed;box-shadow:none}
+  .btn.icon{padding:9px 10px}
+  /* Stats compactas, 5 cards auto-fit */
+  .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px;margin-top:10px}
+  .stat{background:#fff;border:1px solid var(--ring);border-radius:12px;padding:10px 12px}
+  .stat .k{font-size:12px;color:var(--muted)}
+  .stat .v{font-weight:800;font-size:16px}
+  .stat.gain .v{color:var(--ok)} .stat.loss .v{color:var(--danger)}
+
+  /* Main: SIN SCROLL DEL BODY. El card de tabla ocupa todo el alto restante. */
+  .main{min-height:0} /* importante para grids 1fr */
+  .card{background:#fff;border:1px solid var(--ring);border-radius:var(--r);box-shadow:var(--shadow)}
+  .card.table{display:grid;grid-template-rows:auto 1fr;min-height:0}
+  .card.table > .toolbar{padding:10px 12px;border-bottom:1px solid var(--ring);display:flex;gap:8px;flex-wrap:wrap;align-items:center;justify-content:space-between}
+  .filters{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+  .chip{padding:6px 10px;border:1px dashed var(--violet-2);border-radius:999px;font-size:12px;color:#5b21b6;background:#faf5ff}
+  .inp, .sel{width:220px;max-width:42vw;padding:9px 11px;border:1px solid var(--ring);border-radius:12px;background:#fff;font-size:14px;outline:none}
+  .sel{width:180px}
+  .inp:focus,.sel:focus{border-color:var(--violet);box-shadow:0 0 0 3px #7c3aed22}
+
+  /* Tabla ocupa 100% del alto disponible, con su propio scroll interno */
+  .table-wrap{min-height:0;overflow:auto;border-radius:0 0 var(--r) var(--r)}
+  table{width:100%;border-collapse:separate;border-spacing:0}
+  thead th{position:sticky;top:0;background:#f7f2ff;color:#4c1d95;font-size:12px;text-align:left;padding:9px 10px;z-index:1;border-bottom:1px solid var(--ring)}
+  tbody td{padding:8px 10px;border-bottom:1px solid #efe7ff;font-size:14px;vertical-align:middle}
+  tbody tr:nth-child(odd){background:#fbf9ff}
+  tbody tr:hover{background:#f5efff}
+  .num{text-align:right;white-space:nowrap}
+  .tag{background:#ede9fe;color:#5b21b6;border-radius:999px;padding:4px 8px;font-size:12px}
+  .desc{max-width:320px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .gain{font-weight:800;color:var(--ok)} .loss{font-weight:800;color:var(--danger)}
+  .row-actions{display:flex;gap:6px;align-items:center;justify-content:flex-end}
+  .btn-i{width:30px;height:30px;border-radius:10px;border:1px solid var(--ring);background:#fff;color:#5b21b6;display:inline-grid;place-items:center;cursor:pointer;box-shadow:0 2px 6px rgba(0,0,0,.06)}
+  .btn-i:hover{background:#f6f2ff}
+  .btn-i.danger{color:#fff;background:var(--danger);border-color:transparent}
+
+  /* Panel flotante NUEVO producto (dialog) con blur del fondo */
+  dialog{border:0;border-radius:18px;padding:0;max-width:min(560px,92vw);box-shadow:0 30px 80px rgba(0,0,0,.28)}
+  dialog::backdrop{background:rgba(34,23,42,.45);backdrop-filter:blur(6px)}
+  .sheet{padding:16px}
+  .sheet h3{margin:0 0 10px 0;font-size:18px}
+  .row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .row-1{grid-template-columns:1fr}
+  label{display:block;font-size:12px;color:var(--muted);margin:6px 0}
+  input,select,textarea{width:100%;padding:10px 11px;border:1px solid var(--ring);border-radius:12px;background:#fff;font-size:14px;outline:none}
+  textarea{min-height:60px;resize:vertical}
+  input:focus,select:focus,textarea:focus{border-color:var(--violet);box-shadow:0 0 0 3px #7c3aed22}
+  .sheet .footer{display:flex;gap:8px;justify-content:flex-end;margin-top:12px}
+  .toast{position:fixed;right:16px;bottom:16px;background:#fff;border:1px solid var(--ring);box-shadow:var(--shadow);border-radius:12px;padding:10px 14px;font-size:14px;display:none}
+
+  /* Responsive ajustes */
+  @media (max-width:640px){
+    .head-actions .btn{padding:8px 10px}
+    .inp{max-width:58vw}
+    .desc{max-width:160px}
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="wrap">
+    <header class="header">
+      <div class="head-row">
+        <div class="head-left">
+          <div>
+            <h1>Inventario – Importaciones</h1>
+            <div class="sub">Todo corre en tu navegador con <strong>LocalStorage</strong>.</div>
+          </div>
+        </div>
+        <div class="head-actions">
+          <button id="btnNuevo" class="btn icon">➕ Nuevo producto</button>
+          <button id="btnExportXLS" class="btn">⬇️ Excel (.xls)</button>
+          <button id="btnExportCSV" class="btn secondary">⬇️ CSV (;)</button>
+          <button id="btnVaciar" class="btn danger">🗑️ Vaciar</button>
+        </div>
+      </div>
+      <div class="stats">
+        <div class="stat"><div class="k">Productos</div><div class="v" id="sProductos">0</div></div>
+        <div class="stat"><div class="k">Unidades</div><div class="v" id="sUnidades">0</div></div>
+        <div class="stat"><div class="k">Valor costo</div><div class="v" id="sCosto">S/ 0.00</div></div>
+        <div class="stat"><div class="k">Valor venta</div><div class="v" id="sVenta">S/ 0.00</div></div>
+        <div class="stat" id="sGananciaCard"><div class="k">Ganancia total</div><div class="v" id="sGanancia">S/ 0.00</div></div>
+      </div>
+    </header>
+  </div>
+
+  <main class="main wrap">
+    <section class="card table" aria-label="Tabla de productos">
+      <div class="toolbar">
+        <div class="filters">
+          <input id="q" class="inp" placeholder="Buscar por nombre o descripción…">
+          <select id="filtroTipo" class="sel"><option value="">Todos los tipos</option></select>
+          <span class="chip" id="lblResumen">0 resultados</span>
+        </div>
+        <div class="filters">
+          <button id="btnDemo" class="btn secondary">🌸 Ejemplos</button>
+          <button id="btnResetFiltros" class="btn secondary">Reiniciar filtros</button>
+        </div>
+      </div>
+      <div class="table-wrap" id="tablaWrap">
+        <table id="tabla">
+          <thead>
+            <tr>
+              <th>Tipo</th>
+              <th>Nombre</th>
+              <th>Descripción</th>
+              <th class="num">Costo (S/)</th>
+              <th class="num">Precio (S/)</th>
+              <th class="num">Stock</th>
+              <th class="num">Valor costo</th>
+              <th class="num">Valor venta</th>
+              <th class="num">Ganancia</th>
+              <th class="num">Margen %</th>
+              <th class="num">Acciones</th>
+            </tr>
+          </thead>
+          <tbody id="tbody"></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+</div>
+
+<!-- PANEL: Nuevo producto -->
+<dialog id="dlgNuevo">
+  <div class="sheet">
+    <h3>Nuevo producto</h3>
+    <form id="formNuevo" autocomplete="off">
+      <div class="row">
+        <div>
+          <label>Tipo / Categoría</label>
+          <input id="nTipo" list="listaTipos" placeholder="Ej. Cosmética, Accesorios…">
+          <datalist id="listaTipos"></datalist>
+        </div>
+        <div>
+          <label>Nombre del producto</label>
+          <input id="nNombre" placeholder="Ej. Labial mate 24h" required>
+        </div>
+      </div>
+      <div class="row">
+        <div><label>Costo (S/)</label><input id="nCosto" type="number" min="0" step="0.01" placeholder="0.00"></div>
+        <div><label>Precio venta (S/)</label><input id="nPrecio" type="number" min="0" step="0.01" placeholder="0.00"></div>
+      </div>
+      <div class="row">
+        <div><label>Stock inicial</label><input id="nStock" type="number" min="0" step="1" value="0"></div>
+        <div style="display:flex;align-items:center;gap:8px;margin-top:28px">
+          <input id="nMerge" type="checkbox" checked><label for="nMerge">Si existe (mismo Tipo+Nombre), <b>sumar</b> y actualizar.</label>
+        </div>
+      </div>
+      <div class="row row-1">
+        <div><label>Descripción (opcional)</label><textarea id="nDesc" placeholder="Color, talla, presentación…"></textarea></div>
+      </div>
+      <div class="sheet footer">
+        <button type="button" class="btn secondary" id="nCancelar">Cancelar</button>
+        <button type="submit" class="btn ok">Guardar</button>
+      </div>
+    </form>
+  </div>
+</dialog>
+
+<!-- MODAL: Editar -->
+<dialog id="dlgEdit">
+  <div class="sheet">
+    <h3>Editar producto</h3>
+    <form id="formEdit">
+      <input type="hidden" id="eId">
+      <div class="row">
+        <div><label>Tipo</label><input id="eTipo"></div>
+        <div><label>Nombre</label><input id="eNombre"></div>
+      </div>
+      <div class="row">
+        <div><label>Costo (S/)</label><input id="eCosto" type="number" min="0" step="0.01"></div>
+        <div><label>Precio (S/)</label><input id="ePrecio" type="number" min="0" step="0.01"></div>
+      </div>
+      <div class="row">
+        <div><label>Stock</label><input id="eStock" type="number" min="0" step="1"></div>
+        <div><label>Descripción</label><input id="eDesc"></div>
+      </div>
+      <div class="sheet footer">
+        <button type="button" class="btn secondary" id="eCancelar">Cancelar</button>
+        <button type="submit" class="btn ok">Guardar</button>
+      </div>
+    </form>
+  </div>
+</dialog>
+
+<div id="toast" class="toast">Guardado ✔</div>
+
+<script>
+(function(){
+  'use strict';
+  var LS_KEY='inv_data_v6';
+  var $=function(s){return document.querySelector(s);};
+  var INT=new Intl.NumberFormat('es-PE');
+  var PEN=new Intl.NumberFormat('es-PE',{style:'currency',currency:'PEN',minimumFractionDigits:2});
+
+  var data=load(); // [{id,tipo,nombre,desc,costo,precio,stock,createdAt,updatedAt}]
+  var filterText=''; var filterTipo='';
+
+  /* Utils */
+  function uid(){return 'p'+Math.random().toString(36).slice(2,8)+Date.now().toString(36);}
+  function load(){try{var raw=localStorage.getItem(LS_KEY);return raw?JSON.parse(raw):[];}catch(e){return [];}}
+  function save(){localStorage.setItem(LS_KEY,JSON.stringify(data));render();}
+  function toast(msg){var t=$('#toast');t.textContent=msg;t.style.display='block';setTimeout(function(){t.style.display='none';},1100);}
+  function escHtml(s){return String(s==null?'':s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;'}[c];});}
+  function escXml(s){return String(s==null?'':s).replace(/[<>&'"]/g,function(c){return {'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;',"'":'&apos;'}[c];});}
+  function n2(x){return (+(x||0)).toFixed(2);} function i0(x){x=parseInt(x,10);return isNaN(x)?0:Math.max(0,x);}
+
+  /* Render principal (encaja en viewport, tabla con scroll interno) */
+  function render(){
+    // tipos únicos
+    var tipos=[],k;
+    for(k=0;k<data.length;k++){var t=(data[k].tipo||'').trim(); if(t && tipos.indexOf(t)===-1) tipos.push(t);}
+    tipos.sort(function(a,b){return a.localeCompare(b);});
+    $('#listaTipos').innerHTML=tipos.map(function(t){return '<option value="'+escHtml(t)+'">';}).join('');
+    var sel=$('#filtroTipo'),prev=sel.value||'',opts='<option value="">Todos los tipos</option>';
+    for(k=0;k<tipos.length;k++){opts+='<option'+(tipos[k]===prev?' selected':'')+'>'+escHtml(tipos[k])+'</option>';}
+    sel.innerHTML=opts;
+
+    // aplicar filtros + orden
+    var q=filterText.trim().toLowerCase();
+    var rows=data.slice().sort(function(a,b){
+      var x=(a.tipo||'').localeCompare(b.tipo||''); if(x!==0) return x;
+      return (a.nombre||'').localeCompare(b.nombre||'');
+    }).filter(function(p){
+      var passTipo=!filterTipo || p.tipo===filterTipo;
+      var text=(p.nombre+' '+(p.desc||'')+' '+(p.tipo||'')).toLowerCase();
+      var passText=!q || text.indexOf(q)>-1;
+      return passTipo && passText;
+    });
+
+    // tabla
+    var tb=$('#tbody'),html='';
+    for(k=0;k<rows.length;k++){
+      var p=rows[k], valC=(p.costo||0)*(p.stock||0), valV=(p.precio||0)*(p.stock||0), gn=valV-valC;
+      var mg=(p.costo||0)>0?((p.precio-p.costo)/p.costo)*100:0;
+      html+='<tr data-id="'+escHtml(p.id)+'">'+
+        '<td><span class="tag">'+escHtml(p.tipo||'-')+'</span></td>'+
+        '<td>'+escHtml(p.nombre)+'</td>'+
+        '<td class="desc">'+escHtml(p.desc||'-')+'</td>'+
+        '<td class="num">'+PEN.format(p.costo||0)+'</td>'+
+        '<td class="num">'+PEN.format(p.precio||0)+'</td>'+
+        '<td class="num"><strong>'+INT.format(p.stock||0)+'</strong></td>'+
+        '<td class="num">'+PEN.format(valC)+'</td>'+
+        '<td class="num">'+PEN.format(valV)+'</td>'+
+        '<td class="num '+(gn>=0?'gain':'loss')+'">'+PEN.format(gn)+'</td>'+
+        '<td class="num">'+mg.toFixed(1)+'%</td>'+
+        '<td class="num"><div class="row-actions">'+
+          '<button class="btn-i" data-act="dec" title="−1">−</button>'+
+          '<button class="btn-i" data-act="inc" title="+1">+</button>'+
+          '<button class="btn-i" data-act="edit" title="Editar">✎</button>'+
+          '<button class="btn-i danger" data-act="del" title="Eliminar">🗑</button>'+
+        '</div></td>'+
+      '</tr>';
+    }
+    tb.innerHTML=html;
+
+    // stats
+    var sP=data.length,sU=0,sC=0,sV=0;
+    for(k=0;k<data.length;k++){sU+=data[k].stock||0; sC+=(data[k].costo||0)*(data[k].stock||0); sV+=(data[k].precio||0)*(data[k].stock||0);}
+    var sG=sV-sC;
+    $('#sProductos').textContent=INT.format(sP);
+    $('#sUnidades').textContent=INT.format(sU);
+    $('#sCosto').textContent=PEN.format(sC);
+    $('#sVenta').textContent=PEN.format(sV);
+    $('#sGanancia').textContent=PEN.format(sG);
+    var card=$('#sGananciaCard'); card.classList.remove('gain','loss'); card.classList.add(sG>=0?'gain':'loss');
+
+    var has=data.length>0;
+    $('#btnExportXLS').disabled=!has; $('#btnExportCSV').disabled=!has; $('#btnVaciar').disabled=!has;
+    $('#lblResumen').textContent=rows.length+' resultado'+(rows.length!==1?'s':'');
+  }
+
+  /* CRUD */
+  function addProduct(o){
+    var tp=(o.tipo||'').trim(), nb=(o.nombre||'').trim();
+    if(!nb){alert('El nombre es obligatorio.'); return;}
+    var costo=Math.max(0,+o.costo||0), precio=Math.max(0,+o.precio||0), stock=i0(o.stock), desc=(o.desc||'').trim();
+    if(o.mergeIfExists){
+      for(var k=0;k<data.length;k++){
+        var p=data[k];
+        if((p.nombre||'').trim().toLowerCase()===nb.toLowerCase() && (p.tipo||'').trim().toLowerCase()===tp.toLowerCase()){
+          p.stock=(p.stock||0)+stock; p.costo=costo; p.precio=precio; p.desc=desc; p.updatedAt=Date.now(); save(); toast('Actualizado ✔'); return;
+        }
+      }
+    }
+    data.unshift({id:uid(),tipo:tp,nombre:nb,desc:desc,costo:costo,precio:precio,stock:stock,createdAt:Date.now(),updatedAt:Date.now()});
+    save(); toast('Agregado ✔');
+  }
+  function removeProduct(id){for(var i=0;i<data.length;i++){if(data[i].id===id){data.splice(i,1);save();toast('Eliminado ✔');return;}}}
+  function adjustStock(id,delta){for(var i=0;i<data.length;i++){if(data[i].id===id){data[i].stock=Math.max(0,(data[i].stock||0)+delta);data[i].updatedAt=Date.now();save();return;}}}
+  function applyEdit(payload){
+    for(var i=0;i<data.length;i++){
+      if(data[i].id===payload.id){
+        data[i].tipo=(payload.tipo||'').trim();
+        data[i].nombre=(payload.nombre||'').trim();
+        data[i].desc=(payload.desc||'').trim();
+        data[i].costo=Math.max(0,+payload.costo||0);
+        data[i].precio=Math.max(0,+payload.precio||0);
+        data[i].stock=i0(payload.stock);
+        data[i].updatedAt=Date.now(); save(); toast('Cambios guardados ✔'); return;
+      }
+    }
+  }
+
+  /* Eventos UI */
+  // Filtros
+  $('#q').addEventListener('input',function(e){filterText=e.target.value;render();});
+  $('#filtroTipo').addEventListener('change',function(e){filterTipo=e.target.value||'';render();});
+  $('#btnResetFiltros').addEventListener('click',function(){filterText='';filterTipo='';$('#q').value='';$('#filtroTipo').value='';render();});
+
+  // Tabla
+  $('#tbody').addEventListener('click',function(e){
+    var btn=e.target.closest('button'); if(!btn) return;
+    var tr=btn.closest('tr'); var id=tr?tr.getAttribute('data-id'):null; if(!id) return;
+    var act=btn.getAttribute('data-act');
+    if(act==='del'){ if(confirm('¿Eliminar producto?')) removeProduct(id); return; }
+    if(act==='inc'){ adjustStock(id, 1); return; }
+    if(act==='dec'){ adjustStock(id,-1); return; }
+    if(act==='edit'){ openEdit(id); return; }
+  });
+
+  // Panel NUEVO
+  var dlgN=$('#dlgNuevo');
+  $('#btnNuevo').addEventListener('click',function(){ dlgN.showModal(); });
+  $('#nCancelar').addEventListener('click',function(){ dlgN.close(); });
+  $('#formNuevo').addEventListener('submit',function(e){
+    e.preventDefault();
+    addProduct({
+      tipo:$('#nTipo').value, nombre:$('#nNombre').value, desc:$('#nDesc').value,
+      costo:$('#nCosto').value, precio:$('#nPrecio').value, stock:$('#nStock').value,
+      mergeIfExists:$('#nMerge').checked
+    });
+    e.target.reset(); dlgN.close();
+  });
+
+  // Modal EDITAR
+  var dlgE=$('#dlgEdit');
+  function openEdit(id){
+    var p=null,i; for(i=0;i<data.length;i++){ if(data[i].id===id){ p=data[i]; break; } }
+    if(!p) return;
+    $('#eId').value=p.id; $('#eTipo').value=p.tipo||''; $('#eNombre').value=p.nombre||'';
+    $('#eDesc').value=p.desc||''; $('#eCosto').value=p.costo||0; $('#ePrecio').value=p.precio||0; $('#eStock').value=p.stock||0;
+    dlgE.showModal();
+  }
+  $('#eCancelar').addEventListener('click',function(){ dlgE.close(); });
+  $('#formEdit').addEventListener('submit',function(e){
+    e.preventDefault();
+    applyEdit({ id:$('#eId').value, tipo:$('#eTipo').value, nombre:$('#eNombre').value, desc:$('#eDesc').value, costo:$('#eCosto').value, precio:$('#ePrecio').value, stock:$('#eStock').value });
+    dlgE.close();
+  });
+
+  // Vaciar
+  $('#btnVaciar').addEventListener('click',function(){
+    if(!data.length) return;
+    if(confirm('Esto eliminará TODO el inventario guardado en este navegador. ¿Continuar?')){
+      localStorage.removeItem(LS_KEY); data=[]; render(); toast('Inventario vaciado ✔');
+    }
+  });
+
+  // Exportar CSV (;)
+  $('#btnExportCSV').addEventListener('click',function(){
+    if(!data.length){alert('No hay datos.');return;}
+    var headers=['Tipo','Nombre','Descripción','Costo','Precio','Stock','ValorCosto','ValorVenta','Ganancia','MargenPorc'];
+    var lines=[headers.join(';')];
+    for(var i=0;i<data.length;i++){
+      var p=data[i], vC=(p.costo||0)*(p.stock||0), vV=(p.precio||0)*(p.stock||0), gn=vV-vC;
+      var mg=(p.costo||0)>0?((p.precio-p.costo)/p.costo)*100:0;
+      var row=[csvSafe(p.tipo),csvSafe(p.nombre),csvSafe(p.desc),n2(p.costo),n2(p.precio),i0(p.stock),n2(vC),n2(vV),n2(gn),n2(mg)].join(';');
+      lines.push(row);
+    }
+    var csv='\uFEFF'+lines.join('\r\n');
+    download(new Blob([csv],{type:'text/csv;charset=utf-8;'}), fileName('inventario','-csv','.csv'));
+  });
+
+  // Exportar Excel (.xls – SpreadsheetML)
+  $('#btnExportXLS').addEventListener('click',function(){
+    if(!data.length){alert('No hay datos.');return;}
+    var xml=[], i, p, vC, vV, gn, mg;
+    function cellS(s){ return '<Cell><Data ss:Type="String">'+escXml(s)+'</Data></Cell>'; }
+    function cellN(n){ return '<Cell><Data ss:Type="Number">'+n+'</Data></Cell>'; }
+
+    xml.push('<?xml version="1.0"?>');
+    xml.push('<?mso-application progid="Excel.Sheet"?>');
+    xml.push('<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet" xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet">');
+    xml.push('<Worksheet ss:Name="Inventario"><Table>');
+    xml.push('<Row>'+[
+      cellS('Tipo'),cellS('Nombre'),cellS('Descripción'),
+      cellS('Costo'),cellS('Precio'),cellS('Stock'),
+      cellS('ValorCosto'),cellS('ValorVenta'),cellS('Ganancia'),cellS('Margen(%)')
+    ].join('')+'</Row>');
+
+    for(i=0;i<data.length;i++){
+      p=data[i]; vC=(p.costo||0)*(p.stock||0); vV=(p.precio||0)*(p.stock||0); gn=vV-vC;
+      mg=(p.costo||0)>0?((p.precio-p.costo)/p.costo)*100:0;
+      xml.push('<Row>'+
+        cellS(p.tipo||'')+cellS(p.nombre||'')+cellS(p.desc||'')+
+        cellN(+n2(p.costo))+cellN(+n2(p.precio))+cellN(i0(p.stock))+
+        cellN(+n2(vC))+cellN(+n2(vV))+cellN(+n2(gn))+cellN(+n2(mg))+
+      '</Row>');
+    }
+    xml.push('</Table></Worksheet></Workbook>');
+    download(new Blob([xml.join('')],{type:'application/vnd.ms-excel'}), fileName('inventario','-xls','.xls'));
+  });
+
+  /* helpers export */
+  function csvSafe(s){var t=String(s==null?'':s).replace(/"/g,'""'); return /[;"\r\n]/.test(t)?('"'+t+'"'):t;}
+  function fileName(base,mid,ext){
+    var d=new Date(), pad=function(n){return String(n).padStart(2,'0');};
+    var f=d.getFullYear()+''+pad(d.getMonth()+1)+''+pad(d.getDate())+'_'+pad(d.getHours())+pad(d.getMinutes());
+    return base+mid+f+ext;
+  }
+  function download(blob,name){var a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;document.body.appendChild(a);a.click();setTimeout(function(){URL.revokeObjectURL(a.href);a.remove();},0);}
+
+  /* Datos de ejemplo */
+  $('#btnDemo').addEventListener('click',function(){
+    if(data.length && !confirm('Esto agregará productos de ejemplo a tu lista actual. ¿Continuar?')) return;
+    var ejemplos=[
+      {tipo:'Accesorios', nombre:'Lentes de sol UV400 - Rosa pastel', desc:'Marco liviano', costo:9.00, precio:29.90, stock:22},
+      {tipo:'Accesorios', nombre:'Pulsera minimal - Acero', desc:'Baño color plata', costo:4.50, precio:16.00, stock:20},
+      {tipo:'Cosmética',  nombre:'Labial mate 24h - Tono 03', desc:'Resistente al agua', costo:8.50, precio:22.00, stock:18}
+    ];
+    for(var i=0;i<ejemplos.length;i++){
+      var x=ejemplos[i];
+      data.push({id:uid(),tipo:x.tipo,nombre:x.nombre,desc:x.desc,costo:x.costo,precio:x.precio,stock:x.stock,createdAt:Date.now(),updatedAt:Date.now()});
+    }
+    save(); toast('Ejemplos cargados ✔');
+  });
+
+  /* Bootstrap */
+  render();
+})();
+</script>
+</body>
+</html>
