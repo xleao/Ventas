@@ -8,10 +8,10 @@ Haz clic en “New query” o “+ New”.
 
 En la ventana en blanco, pega este SQL COMPLETO:
 
--- =========================================
+-- ========================================================
 -- 1) USUARIOS
 -- Se relaciona 1 a 1 con auth.users (id = id de Supabase Auth)
--- =========================================
+-- ========================================================
 
 create table if not exists public.usuarios (
   id uuid primary key
@@ -22,11 +22,12 @@ create table if not exists public.usuarios (
   creado_en timestamptz default now()
 );
 
--- =========================================
+-- ========================================================
 -- 2) CATEGORIAS (JERÁRQUICAS)
--- parent_id = NULL  -> categoría principal  (ej. "Stickers")
--- parent_id = id    -> subcategoría        (ej. "Sticker 1", "Sticker 2")
--- =========================================
+-- parent_id = NULL  -> categoría principal
+-- parent_id = id    -> subcategoría
+-- incluye imagen_url
+-- ========================================================
 
 create table if not exists public.categorias (
   id bigserial primary key,
@@ -35,15 +36,15 @@ create table if not exists public.categorias (
   nombre text not null,
   slug text unique,
   descripcion text,
+  imagen_url text,   -- <-- NUEVO CAMPO PARA IMÁGENES
   orden integer,
   activa boolean default true
 );
 
--- =========================================
+-- ========================================================
 -- 3) PRODUCTOS
--- Cada producto pertenece a una categoría/subcategoría
--- Una imagen por producto, con URL al Storage
--- =========================================
+-- Pertecen a categorías/subcategorías
+-- ========================================================
 
 create table if not exists public.productos (
   id bigserial primary key,
@@ -60,11 +61,10 @@ create table if not exists public.productos (
   actualizado_en timestamptz default now()
 );
 
--- =========================================
+-- ========================================================
 -- 4) ORDENES
--- Historial completo (pagadas, pendientes, expiradas, canceladas)
--- "expirada" = no pagó dentro de los 20 minutos
--- =========================================
+-- Todas las órdenes realizadas por usuarios
+-- ========================================================
 
 create table if not exists public.ordenes (
   id bigserial primary key,
@@ -85,10 +85,10 @@ create table if not exists public.ordenes (
   actualizado_en timestamptz default now()
 );
 
--- =========================================
+-- ========================================================
 -- 5) ORDEN_ITEMS
--- Detalle de cada producto dentro de una orden
--- =========================================
+-- Detalle de productos dentro de cada orden
+-- ========================================================
 
 create table if not exists public.orden_items (
   id bigserial primary key,
@@ -102,9 +102,6 @@ create table if not exists public.orden_items (
   subtotal numeric(10,2) not null
 );
 
--- =========================================
--- =========================================
--- =========================================
 
 Haz clic en “Run” (botón arriba a la derecha).
 
